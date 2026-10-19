@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="format-detection" content="telephone=no">
+<title>幸运扫雷 · 抽奖乐</title>
+<style>
+    * {
+        box-sizing: border-box;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+    }
+
+    html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overscroll-behavior: none;
+        overflow: hidden;
+    }
+
+    body {
+        background: linear-gradient(145deg, #1e2b3a 0%, #0f1a24 100%);
+        font-family: -apple-system, 'SF Pro Display', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        min-height: 100dvh;
+        min-height: 100vh;
+    }
+
+    .game-container {
+        width: 100%;
+        max-width: 480px;
+        height: 100dvh;
+        max-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        padding: 12px 14px;
+        background: rgba(28, 40, 51, 0.92);
+    }
+
+    @media (min-width: 500px) {
+        body { padding: 20px; }
+        .game-container {
+            height: auto;
+            max-height: 95vh;
+            border-radius: 36px;
+            padding: 20px 22px;
+            box-shadow: 0 30px 40px rgba(0, 0, 0, 0.6), inset 0 1px 3px rgba(255, 255, 255, 0.1);
+        }
+    }
+
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        flex-shrink: 0;
+    }
+
+    .header h1 {
+        color: #fff7e6;
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        text-shadow: 0 4px 10px rgba(255, 180, 50, 0.3);
+    }
+
+    .header h1 span {
+        background: #ffb347;
+        color: #1e2b3a;
+        border-radius: 100px;
+        padding: 2px 10px;
+        font-size: 13px;
+        font-weight: 700;
+    }
+
+    .restart-btn {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 215, 140, 0.4);
+        color: #ffd98c;
+        border-radius: 40px;
+        padding: 8px 16px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+    }
+
+    .restart-btn:active {
+        transform: scale(0.95);
+        background: rgba(255, 200, 100, 0.25);
+    }
+
+    .grid-wrap {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 0;
+        margin: 8px 0;
+    }
+
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(10, 1fr);
+        gap: 5px;
+        width: 100%;
+        max-width: 420px;
+        aspect-ratio: 1 / 1;
+    }
+
+    .cell {
+        background: #2e404f;
+        aspect-ratio: 1 / 1;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 17px;
+        font-weight: 800;
+        color: #fff;
+        cursor: pointer;
+        box-shadow: 0 4px 0 #0f171f, 0 6px 10px rgba(0, 0, 0, 0.5);
+        transition: all 0.08s ease;
+        border: 1px solid #4a627a;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+        transform: translateY(-1px);
+        line-height: 1;
+        -webkit-touch-callout: none;
+    }
+
+    .cell:not(.revealed):active {
+        transform: translateY(2px);
+        box-shadow: 0 2px 0 #0f171f, 0 4px 8px rgba(0, 0, 0, 0.5);
+    }
+
+    .cell.revealed {
+        cursor: default;
+        box-shadow: 0 1px 0 #0f171f, 0 3px 6px rgba(0, 0, 0, 0.4);
+        transform: translateY(2px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        background: #202b33;
+        color: #fff0cf;
+    }
+
+    .cell.revealed[data-prize="1"] { background: #b8860b; color: #fff3d1; box-shadow: 0 1px 0 #4d3600, 0 0 12px #ffbe3f; border-color: #ffd966; }
+    .cell.revealed[data-prize="2"] { background: #4a6a8a; color: #eef5ff; border-color: #a0c4e8; box-shadow: 0 1px 0 #1c2b3a, 0 0 10px #7aa5d9; }
+    .cell.revealed[data-prize="3"] { background: #3a6e5a; color: #d4f5e9; border-color: #6fbf9d; box-shadow: 0 1px 0 #18332a, 0 0 8px #52c99a; }
+    .cell.revealed[data-prize="4"] { background: #6f4f3a; color: #ffe6d5; border-color: #d4a373; box-shadow: 0 1px 0 #3a271d, 0 0 8px #c99b6e; }
+    .cell.revealed[data-prize="5"] { background: #4e4a6b; color: #e6e0ff; border-color: #b0a8e0; box-shadow: 0 1px 0 #262238, 0 0 8px #8f86c9; }
+    .cell.revealed[data-prize="0"] { background: #5a2e2e; color: #fbc2c2; border-color: #c96b6b; box-shadow: 0 1px 0 #311818, 0 0 10px #b34b4b; font-size: 20px; }
+
+    .legend {
+        background: rgba(0, 0, 0, 0.45);
+        border-radius: 20px;
+        padding: 12px 14px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        flex-shrink: 0;
+        max-height: 32vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+    }
+
+    .legend-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #cbb99e;
+        font-size: 13px;
+        font-weight: 500;
+        margin-bottom: 10px;
+        border-bottom: 1px dashed rgba(255, 215, 140, 0.3);
+        padding-bottom: 8px;
+    }
+
+    .legend-title span {
+        background: #ffb347;
+        height: 6px;
+        width: 6px;
+        border-radius: 10px;
+        box-shadow: 0 0 8px #ffb347;
+    }
+
+    .prize-list {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+        color: #dbd3c5;
+    }
+
+    .prize-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+        background: rgba(255, 255, 255, 0.02);
+        padding: 4px 8px;
+        border-radius: 30px;
+    }
+
+    .prize-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 10px;
+        font-weight: 800;
+        font-size: 14px;
+        flex-shrink: 0;
+    }
+
+    .badge-1 { background: #ffc107; color: #2d1b00; }
+    .badge-2 { background: #a3c9ff; color: #0a1f33; }
+    .badge-3 { background: #88d6b4; color: #0b2b1e; }
+    .badge-4 { background: #e0b48b; color: #2d1e0e; }
+    .badge-5 { background: #b6aaf0; color: #1b1635; }
+
+    .prize-text { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+    .prize-name { color: #fff1d6; font-weight: 600; margin-right: 2px; }
+    .prize-count { color: #9aaec2; font-size: 11px; background: rgba(255, 255, 255, 0.08); padding: 1px 7px; border-radius: 30px; white-space: nowrap; }
+
+    .game-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: #818f9c;
+        font-size: 12px;
+        padding: 6px 2px 0;
+        flex-shrink: 0;
+    }
+
+    .stats span { color: #ffcf8a; font-weight: 700; font-size: 14px; margin: 0 3px; }
+
+    @media (min-width: 480px) {
+        .prize-list { grid-template-columns: 1fr 1fr; }
+        .grid { gap: 6px; }
+        .cell { font-size: 18px; border-radius: 12px; }
+    }
+
+    @media (max-width: 360px) {
+        .grid { gap: 3px; }
+        .cell { font-size: 14px; border-radius: 8px; }
+        .header h1 { font-size: 17px; }
+        .restart-btn { padding: 6px 12px; font-size: 12px; }
+    }
+</style>
+</head>
+<body>
+<div class="game-container">
+    <div class="header">
+        <h1>🎲 幸运扫雷 <span>抽奖</span></h1>
+        <button class="restart-btn" id="restartBtn">🔄 重开</button>
+    </div>
+
+    <div class="grid-wrap">
+        <div class="grid" id="grid"></div>
+    </div>
+
+    <div class="legend">
+        <div class="legend-title"><span></span> 奖项与产品对照 <span></span></div>
+        <div class="prize-list">
+            <div class="prize-item"><div class="prize-badge badge-1">1</div><div class="prize-text"><span class="prize-name">一等奖</span>冰箱(2000元)<span class="prize-count">2个</span></div></div>
+            <div class="prize-item"><div class="prize-badge badge-2">2</div><div class="prize-text"><span class="prize-name">二等奖</span>烤箱(1000元)<span class="prize-count">5个</span></div></div>
+            <div class="prize-item"><div class="prize-badge badge-3">3</div><div class="prize-text"><span class="prize-name">三等奖</span>500元现金<span class="prize-count">8个</span></div></div>
+            <div class="prize-item"><div class="prize-badge badge-4">4</div><div class="prize-text"><span class="prize-name">四等奖</span>300元现金<span class="prize-count">10个</span></div></div>
+            <div class="prize-item"><div class="prize-badge badge-5">5</div><div class="prize-text"><span class="prize-name">五等奖</span>100元现金<span class="prize-count">15个</span></div></div>
+        </div>
+    </div>
+
+    <div class="game-footer">
+        <div class="stats">💣 已点: <span id="openedCount">0</span> / 100</div>
+        <div class="stats">🎁 剩余奖品: <span id="remainingPrizes">40</span></div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const PRIZE_CONFIG = [
+        { level: 1, count: 2 },
+        { level: 2, count: 5 },
+        { level: 3, count: 8 },
+        { level: 4, count: 10 },
+        { level: 5, count: 15 }
+    ];
+    const TOTAL_CELLS = 100;
+    const BOMB_COUNT = 60;
+
+    let board = [];
+    let revealed = new Array(TOTAL_CELLS).fill(false);
+    let openedCount = 0;
+
+    const gridEl = document.getElementById('grid');
+    const openedCountEl = document.getElementById('openedCount');
+    const remainingPrizesEl = document.getElementById('remainingPrizes');
+    const restartBtn = document.getElementById('restartBtn');
+
+    function shuffleArray(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    }
+
+    function initBoard() {
+        const pool = [];
+        PRIZE_CONFIG.forEach(({ level, count }) => {
+            for (let i = 0; i < count; i++) pool.push(level);
+        });
+        for (let i = 0; i < BOMB_COUNT; i++) pool.push(0);
+        return shuffleArray(pool);
+    }
+
+    function updateStats() {
+        openedCountEl.textContent = openedCount;
+        let remaining = 0;
+        for (let i = 0; i < TOTAL_CELLS; i++) {
+            if (!revealed[i] && board[i] !== 0) remaining++;
+        }
+        remainingPrizesEl.textContent = remaining;
+    }
+
+    function applyRevealedStyle(cell, index) {
+        const prizeLevel = board[index];
+        cell.classList.add('revealed');
+        cell.dataset.prize = prizeLevel;
+        cell.textContent = prizeLevel === 0 ? '💣' : prizeLevel;
+    }
+
+    function handleCellClick(index) {
+        if (revealed[index]) return;
+        revealed[index] = true;
+        openedCount++;
+
+        const cell = gridEl.children[index];
+        if (cell) applyRevealedStyle(cell, index);
+        updateStats();
+
+        if (openedCount === TOTAL_CELLS) {
+            setTimeout(() => alert('🎉 所有格子都点完啦！点击“重开”再来一局。'), 100);
+        }
+    }
+
+    function renderGrid() {
+        gridEl.innerHTML = '';
+        for (let i = 0; i < TOTAL_CELLS; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.dataset.index = i;
+
+            if (revealed[i]) {
+                applyRevealedStyle(cell, i);
+            } else {
+                cell.textContent = '';
+            }
+
+            let touched = false;
+            cell.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                if (touched) return;
+                touched = true;
+                handleCellClick(i);
+                setTimeout(() => { touched = false; }, 180);
+            }, { passive: false });
+
+            cell.addEventListener('contextmenu', (e) => e.preventDefault());
+            cell.addEventListener('longpress', (e) => e.preventDefault());
+
+            gridEl.appendChild(cell);
+        }
+    }
+
+    function resetGame() {
+        board = initBoard();
+        revealed = new Array(TOTAL_CELLS).fill(false);
+        openedCount = 0;
+        renderGrid();
+        updateStats();
+    }
+
+    resetGame();
+
+    restartBtn.addEventListener('click', () => {
+        resetGame();
+    });
+
+    document.addEventListener('gesturestart', (e) => e.preventDefault());
+    document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
+
+    document.addEventListener('touchmove', (e) => {
+        if (e.target.closest('.legend')) return;
+        e.preventDefault();
+    }, { passive: false });
+
+    document.body.addEventListener('touchmove', (e) => {
+        if (e.target.closest('.legend')) return;
+        e.preventDefault();
+    }, { passive: false });
+})();
+</script>
+</body>
+</html>
